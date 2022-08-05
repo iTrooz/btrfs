@@ -151,9 +151,14 @@ generate your Makefile.
 Signing
 -----------
 To install a built-from-source or a nightly (from github actions) driver, you need to sign it
-In this section, I will show how to disable driver signature enforcement, or how to sign the driver using test-signing
-Warning : both of these solutions aren't perfect, if you are looking for a everyday-use it is recommanded to use the release builds, which are signed with a Microsoft-trusted key.
+there are different ways to achieve this :
+You can either install the signing key for nightly builds on your system (github action builds only), sign it yourself, or disable driver signature enforcement
 
+Signing the driver yourself won't be covered here, but you can figure out how to do it by looking at the (CI)[.github/workflows/build.yml], and at this link : https://docs.microsoft.com/en-us/windows-hardware/drivers/install/test-signing
+Else, you can create a fork of this repository and add your own certificate for the CI to use
+
+
+**Warning : If you are looking for a everyday-use it is recommanded to use the release builds, which are signed with a Microsoft-trusted key.**
 
 ## Disabling signature enforcement
 Note : this isn't persistent accross reboots
@@ -180,53 +185,25 @@ Follow the same instructions as step 1
 ### 4 - Done !
 The driver should now be installed ! Note it will only load when the computer is started without driver signature enforcement
 
-
-
-## Test-signing the driver
-Note : This method is harder to put in place, and has the only benefit of persisting after reboots.
-
-Example commands are given for each steps but it is recommand to check the microsoft documentation link about test-signing, so you know what you are doing
-
-Relevant link : https://docs.microsoft.com/en-us/windows-hardware/drivers/install/test-signing
+## Installing the key used for the nightly builds
 
 ### 1 - Put your computer in test mode
 
 test-signing doesn't seem to work with Windows by default. You will need to put your computer in a special mode to allow test-signing.
 
-`bcdedit  /set  testsigning  on`
+`bcdedit /set testsigning  on`
+
+Reboot the computer after this
 
 Note : you might need to disable Secure Boot for this to work
+### 2 - Install the certificate to your system
 
-### 2 - Generate a MakeCert certificate
-
-This certificate will be used to sign the catalog file of the driver
-
-`makecert -r -pe -ss PrivateCertStore -n CN=Contoso.com(Test) ContosoTest.cer`
-
-### 3 - Install the certificate to your system
-
-For your certificate to be effective, it needs to be installed in the "Trusted Root Certification Authorities" certificate store of the computer you want to install the driver on.
-You can add it by launching "CertMgr" **as administrator**, selecting the "Trusted Root Certification Authorities" certificate store, and importing the .cer file generated earlier
-(The command given on the documentation doesn't seem to work and just launches the CertMgr GUI)
-
-### 4 - Generate a catalog file for your driver
-
-You will need the "Inf2Cat" tool, installed as part of the WDK.
-Run the command in the same directory as your btrfs.inf file (or modify the /driver flag)
-
-The command will differ in your case (because of the path) but here is the one I used :
-
-`"C:\Program Files (x86)\Windows Kits\10\bin\x86\Inf2Cat.exe" /os:10_NI_X64 /driver:.`
-
-Note : this was tested in Windows 11, you might need to change the values of the /os flag according to your Windows version
-
-### 5 - Sign the catalog file
-
-Simply sign the catalog file of the driver with the certificate you generated
-
-`SignTool sign /fd SHA256 /v /s PrivateCertStore /n contoso.com(test) /t http://timestamp.digicert.com btrfs.cat`
-
-Only steps 4-5 needs to be done again to sign a new build of the driver
+The certificate needs to be installed in the "Trusted Root Certification Authorities" **and** "Trusted Publishers" certificate stores of the computer you want to install the driver on.
+You can add it by launching "CertMgr" **as an administrator** (You need to manage the certificate of your computer, and not of your current user !), and importing the public key found (here)[btrfs.cer] in both of the certificate stores mentioned.
+### 3 - Install the driver
+Simply install the driver (by right-clicking on the .inf file->install)
+If you did everything right, a popup asking you to restart the computeer should appear
+If you get no popup at all, you are maybe not in test mode.
 
 Mappings
 --------
